@@ -1,0 +1,248 @@
+/* ============================================================
+   GUITAR 音阶练习 — 在 chord-styles.css 同一套黏土拟态设计语言上，
+   补充音阶练习专有组件：播放按钮、顺阶和弦网格、指板音级标注。
+   ============================================================ */
+
+/* Hero 卡内音阶名较长，缩小字号避免溢出 */
+.hero-card .chord-name-card { min-width: 0; padding: 22px 30px 18px; }
+.hero-card .chord-name-card span {
+  font-size: 38px;
+  white-space: nowrap;
+}
+.hero-card .chord-name-card small {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+/* 指板区操作区（播放 + 标注切换） */
+.scale-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  color: #2f5a6e;
+  background: var(--surface-blue);
+  border: var(--clay-border-sm);
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: var(--shadow-clay-blue);
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease, background .2s ease;
+}
+.play-btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
+.play-btn:active { transform: translateY(1px); }
+.play-btn:focus-visible { outline: 3px solid var(--purple-400); outline-offset: 2px; }
+.play-btn .play-icon { font-size: 11px; line-height: 1; }
+.play-btn.playing {
+  color: #fff;
+  background: linear-gradient(145deg, #f5a69c, #e58a80);
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow: var(--shadow-clay-pink);
+}
+
+.fretboard-label-switch { gap: 8px; }
+.fretboard-label-switch .segmented button { padding: 5px 12px; }
+
+/* 指板交互区 */
+.scale-fretboard { cursor: pointer; }
+.scale-fretboard .fb-string-strip:hover { fill: rgba(79, 143, 176, 0.07); }
+
+/* 品位数字条：flex 布局，JS 设置 padding-left 与每格宽度，与 SVG 列对齐 */
+.fret-numbers {
+  display: flex;
+  align-items: center;
+  min-width: max-content;
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-3);
+}
+.fret-numbers span { flex: 0 0 auto; box-sizing: border-box; }
+
+/* 指板音级上标（SVG 文本） */
+.diagram-degree {
+  font-family: var(--font);
+  font-size: 8px;
+  font-weight: 800;
+  fill: var(--text-3);
+}
+
+/* ===================== 顺阶和弦 ===================== */
+.diatonic-section { scroll-margin-top: 16px; }
+.diatonic-block { margin-top: 6px; }
+.diatonic-block + .diatonic-block { margin-top: 18px; }
+
+.diatonic-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.diatonic-subtitle::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(120, 120, 140, 0.18);
+}
+
+.diatonic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.chord-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 6px 9px;
+  width: 100%;
+  min-width: 0;
+  background: var(--surface);
+  border: var(--clay-border-sm);
+  border-radius: 12px;
+  box-shadow: var(--shadow-clay-sm);
+  cursor: pointer;
+  transition: translate .25s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease;
+}
+.chord-cell:hover { translate: 0 -4px; box-shadow: var(--shadow-clay); }
+.chord-cell:focus-visible { outline: 3px solid var(--purple-400); outline-offset: 2px; }
+.chord-cell.active {
+  background: linear-gradient(145deg, #e7f3ec, #d8efe0);
+  border-color: rgba(47, 164, 90, 0.55);
+  box-shadow: 3px 3px 0 rgba(47, 164, 90, 0.35), inset 0 0 8px rgba(47, 164, 90, 0.12);
+}
+
+.chord-cell-roman {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  line-height: 1;
+}
+.chord-cell.active .chord-cell-roman { color: var(--green); }
+
+.chord-cell-symbol {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-2);
+  line-height: 1.1;
+}
+.chord-cell.active .chord-cell-symbol { color: var(--green); }
+
+.chord-cell .chord-diagram {
+  margin: 2px 0 0;
+  width: 100%;
+  max-width: 100%;
+  line-height: 0;
+  display: flex;
+  justify-content: center;
+}
+.chord-cell .chord-diagram svg {
+  width: 100%;
+  height: auto;
+  max-width: 120px; /* 放大：原 96px，删除说明文字后让指法图更大 */
+  margin: 0 auto;
+}
+
+/* 顺阶和弦卡片「查看详情」按钮：与 chord 速查页跳转入口对齐 */
+.chord-cell-detail-btn {
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #7a4a44;
+  background: #fde6e1;
+  border: 1px solid rgba(245, 166, 156, 0.7);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: translate .15s ease, box-shadow .15s ease, background .15s ease;
+  white-space: nowrap;
+}
+.chord-cell-detail-btn:hover,
+.chord-cell-detail-btn:focus-visible {
+  translate: 0 -2px;
+  background: #fff5f1;
+  box-shadow: var(--shadow-clay-sm, 0 2px 0 #d2d6e0);
+  outline: none;
+}
+.chord-cell-detail-btn:active { translate: 0 0; }
+.chord-cell.active .chord-cell-detail-btn {
+  background: #fff;
+  border-color: rgba(47, 164, 90, 0.5);
+  color: var(--green);
+}
+
+/* 品格区间双滑块（指板范围） */
+.fret-range-slider { margin-top: 10px; }
+.range-values {
+  display: flex; align-items: baseline; justify-content: center; gap: 4px; margin-bottom: 10px;
+  font-size: 20px; font-weight: 800; color: var(--text);
+}
+.range-values span:nth-child(1),
+.range-values span:nth-child(3) { display: inline-block; min-width: 28px; text-align: center; }
+.range-values span:nth-child(4) { font-size: 11px; font-weight: 700; opacity: 0.8; color: var(--text-3); }
+
+.range-track-wrap { position: relative; height: 32px; margin: 0 8px; }
+.range-track-bg,
+.range-track-fill {
+  position: absolute; top: 50%; left: 0; right: 0; height: 8px; margin-top: -4px;
+  background: var(--surface); border: 2px solid rgba(255, 255, 255, 0.85); border-radius: var(--radius-pill);
+  box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.07), inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+}
+.range-track-fill { right: auto; background: linear-gradient(90deg, #9bc5d9, #d6d6ea); border: 0; box-shadow: none; }
+
+.range-track-wrap input[type="range"] {
+  position: absolute; top: 0; left: -8px; width: calc(100% + 16px); height: 100%;
+  margin: 0; padding: 0; background: transparent;
+  -webkit-appearance: none; appearance: none; pointer-events: none;
+}
+.range-track-wrap input[type="range"]::-webkit-slider-runnable-track { height: 8px; background: transparent; }
+.range-track-wrap input[type="range"]::-moz-range-track { height: 8px; background: transparent; }
+.range-track-wrap input[type="range"]::-webkit-slider-thumb {
+  position: relative; z-index: 2; width: 22px; height: 32px; margin-top: -12px;
+  background: #ffffff; border: 2px solid rgba(255, 255, 255, 0.9); border-radius: 8px;
+  box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.18);
+  cursor: pointer; pointer-events: auto; -webkit-appearance: none; appearance: none;
+  transition: transform .12s ease;
+}
+.range-track-wrap input[type="range"]::-moz-range-thumb {
+  width: 22px; height: 32px; background: #ffffff; border: 2px solid rgba(255, 255, 255, 0.9); border-radius: 8px;
+  box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.18); cursor: pointer; pointer-events: auto;
+}
+.range-track-wrap input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.12); }
+.range-track-wrap input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 3px solid var(--purple-400); outline-offset: 2px; }
+.range-track-wrap input[type="range"]:focus-visible::-moz-range-thumb { outline: 3px solid var(--purple-400); outline-offset: 2px; }
+
+.range-labels { display: flex; justify-content: space-between; margin-top: 4px; padding: 0 8px; font-size: 10px; font-weight: 700; color: var(--text-3); }
+
+/* 选中品位区间高亮带 */
+.fb-range-band { pointer-events: none; }
+
+/* 移动端：顺阶和弦网格多列铺满 */
+@media (max-width: 760px) {
+  .hero-card .chord-name-card span { font-size: 30px; }
+  .scale-actions { width: 100%; justify-content: flex-start; }
+  .diatonic-grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 7px; }
+  .chord-cell { padding: 6px 4px 7px; }
+  .chord-cell-roman { font-size: 11px; }
+  .chord-cell-symbol { font-size: 9px; }
+}
