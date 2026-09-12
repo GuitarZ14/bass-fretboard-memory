@@ -1,6 +1,6 @@
 /* ============================================================
-   GUITAR 和弦速查 — Claymorphism 黏土拟态浅色主题
-   与「GUITAR 指板记忆」（styles.css）保持同一套设计语言：
+   BASS 音阶练习 — Claymorphism 黏土拟态浅色主题
+   与「BASS 指板记忆」（styles.css）保持同一套设计语言：
    浅桃→浅蓝页面渐变 + 白→浅灰中性黏土卡片 + 四色柔和彩色黏土
    （柔桃 / 宝宝蓝 / 薄荷 / 丁香）
    双重阴影 + 大圆角 + 3px 白边；hover 上浮、active 下压。
@@ -185,7 +185,7 @@ button { color: inherit; cursor: pointer; }
 .tool-link:active { transform: translateY(1px); }
 .tool-link:focus-visible { outline: 3px solid var(--purple-400); outline-offset: 2px; }
 
-/* 顶栏双 Tab 切换器（指板练习 ↔ 和弦速查） */
+/* 顶栏双 Tab 切换器（指板练习 ↔ 音阶练习） */
 .tool-nav.tabs {
   gap: 4px;
   padding: 4px;
@@ -1308,105 +1308,3 @@ footer > span { margin-right: 2px; }
   .detail-diagram svg { max-width: 200px; }
 }
 
-/* ===================== 贝斯和弦页：和声图例与琶音路径 ===================== */
-.chord-legend {
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
-  align-items: center;
-  margin-top: 12px;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.55);
-  border-radius: 14px;
-  font-size: 13px;
-  color: #4a3a52;
-}
-.chord-legend .legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.chord-legend .dot {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 1.5px solid #1a1322;
-}
-.chord-legend .dot-root { background: #ef6a4d; }
-.chord-legend .dot-3 { background: #7aa2d4; }
-.chord-legend .dot-5 { background: #9bc494; }
-.chord-legend .dot-7 { background: #cba6e3; }
-
-.arp-block {
-  margin-top: 10px;
-}
-.arp-path {
-  margin-top: 10px;
-}
-.arp-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.arp-step {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbf3ec 100%);
-  border-radius: 14px;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.06);
-  font-size: 14px;
-  color: #2a2030;
-}
-.arp-idx {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  font-weight: 700;
-  font-size: 12px;
-  color: #1a1322;
-  background: #ef6a4d;
-}
-.arp-name {
-  font-weight: 700;
-  font-size: 16px;
-  color: #2a2030;
-}
-.arp-loc {
-  color: #6f5d7c;
-  font-size: 13px;
-}
-.arp-arrow {
-  list-style: none;
-  color: #b6a5c0;
-  font-size: 20px;
-  font-weight: 700;
-}
-.arp-miss .arp-name,
-.arp-miss .arp-loc {
-  color: #b6a5c0;
-}
-.arp-empty {
-  margin: 0;
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.55);
-  border-radius: 12px;
-  color: #6f5d7c;
-  font-size: 14px;
-}
-
-/* 指板 SVG 容器：贝斯 4 弦版式（深色琴颈更直观） */
-.chord-fretboard {
-  background: transparent;
-  display: block;
-  margin: 0 auto;
-}

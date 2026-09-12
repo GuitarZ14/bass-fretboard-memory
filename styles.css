@@ -232,7 +232,7 @@ button { color: inherit; cursor: pointer; }
 .tool-link:active { transform: translateY(1px); }
 .tool-link:focus-visible { outline: 3px solid var(--purple-400); outline-offset: 2px; }
 
-/* 顶栏双 Tab 切换器（指板练习 ↔ 和弦速查） */
+/* 顶栏双 Tab 切换器（指板练习 ↔ 音阶练习） */
 .tool-nav.tabs {
   gap: 4px;
   padding: 4px;

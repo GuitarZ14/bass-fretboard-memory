@@ -223,9 +223,9 @@ const SCALE_DIAGRAM_COLORS = {
   playing: "#e8a13c", // 播放时高亮当前音级（所有同音名位置）
 };
 
-function scaleStringWidth(si, thin, thick) {
-  // 4/5 弦通用：取最大弦索引归一化，避免 4 弦版线条全部偏细
-  const denom = Math.max(1, 5);
+function scaleStringWidth(si, thin, thick, stringCount) {
+  // 4/5 弦通用：按实际弦数归一化，避免不同弦数下线条粗细失衡
+  const denom = Math.max(1, (stringCount || 4) - 1);
   return +(thin + (si / denom) * (thick - thin)).toFixed(2);
 }
 
@@ -262,7 +262,7 @@ function buildScaleFretboardSVG(root, scaleType, tuning, opts = {}) {
   const highlight = opts.highlight || null; // Set<number> 或数组（pitch class）
   const playingPc = opts.playingPc ?? null; // 播放时高亮的 pitch class（所有同音名位置）
   const L = scaleFbLayout(frets, tuning);
-  const { leftPad, colW, rowH, pad, rightEdge, w, h, order } = L;
+  const { leftPad, colW, rowH, pad, rightEdge, w, h, order, stringCount } = L;
 
   // 半音 → 音级映射（用于标注）
   const semiToDegree = {};
@@ -285,28 +285,31 @@ function buildScaleFretboardSVG(root, scaleType, tuning, opts = {}) {
     const x = leftPad + (f - 0) * colW;
     const isNut = f === 0;
     parts.push(
-      `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${pad.t + 6 * rowH}" stroke="${isNut ? SCALE_DIAGRAM_COLORS.nut : SCALE_DIAGRAM_COLORS.line}" stroke-width="${isNut ? 8 : 7}"/>`
+      `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${pad.t + stringCount * rowH}" stroke="${isNut ? SCALE_DIAGRAM_COLORS.nut : SCALE_DIAGRAM_COLORS.line}" stroke-width="${isNut ? 8 : 7}"/>`
     );
   }
 
   order.forEach((si, row) => {
     const y = pad.t + row * rowH + rowH / 2;
-    const sw = scaleStringWidth(si, 2, 6);
+    const sw = scaleStringWidth(si, 2, 6, stringCount);
     parts.push(`<line x1="${leftPad}" y1="${y}" x2="${rightEdge}" y2="${y}" stroke="${SCALE_DIAGRAM_COLORS.line}" stroke-width="${sw}"/>`);
     parts.push(`<text class="diagram-stringname" x="${leftPad - 34}" y="${y + 3}" text-anchor="end">${noteName(tuning.pitches[si], accidental)}</text>`);
   });
 
-  // 品记
+  // 品记：位置随弦数自适应
+  //  - 单点：落在最中间两根弦之间（弦数为奇数时落正中一行）
+  //  - 双点：分列中线上下各一格
+  const midRow = (stringCount - 1) / 2;
   [3, 5, 7, 9, 15, 17, 19, 21].forEach((f) => {
     if (f > frets) return;
     const x = scaleFretX(L, f);
-    parts.push(`<circle cx="${x}" cy="${pad.t + 3 * rowH}" r="6" fill="rgba(120,120,140,0.35)"/>`);
+    parts.push(`<circle cx="${x}" cy="${pad.t + (midRow + 0.5) * rowH}" r="6" fill="rgba(120,120,140,0.35)"/>`);
   });
   [12, 24].forEach((f) => {
     if (f > frets) return;
     const x = scaleFretX(L, f);
-    parts.push(`<circle cx="${x}" cy="${pad.t + 2.5 * rowH}" r="6" fill="rgba(120,120,140,0.35)"/>`);
-    parts.push(`<circle cx="${x}" cy="${pad.t + 4.5 * rowH}" r="6" fill="rgba(120,120,140,0.35)"/>`);
+    parts.push(`<circle cx="${x}" cy="${pad.t + (midRow + 0.5) * rowH}" r="6" fill="rgba(120,120,140,0.35)"/>`);
+    parts.push(`<circle cx="${x}" cy="${pad.t + (midRow - 0.5) * rowH}" r="6" fill="rgba(120,120,140,0.35)"/>`);
   });
 
   // 选中品位区间高亮带：覆盖 [startFret, endFret]，其余区域保持普通
@@ -314,7 +317,7 @@ function buildScaleFretboardSVG(root, scaleType, tuning, opts = {}) {
     const bx0 = leftPad + startFret * colW;
     const bx1 = leftPad + endFret * colW;
     parts.push(
-      `<rect class="fb-range-band" x="${bx0}" y="${pad.t}" width="${bx1 - bx0}" height="${6 * rowH}" rx="10" fill="rgba(155,197,217,0.18)" stroke="rgba(155,197,217,0.55)" stroke-width="2"/>`
+      `<rect class="fb-range-band" x="${bx0}" y="${pad.t}" width="${bx1 - bx0}" height="${stringCount * rowH}" rx="10" fill="rgba(155,197,217,0.18)" stroke="rgba(155,197,217,0.55)" stroke-width="2"/>`
     );
   }
 
@@ -360,7 +363,7 @@ function buildScaleFretboardSVG(root, scaleType, tuning, opts = {}) {
   order.forEach((si, row) => {
     const y = pad.t + row * rowH;
     parts.push(
-      `<rect class="fb-string-strip" x="0" y="${y}" width="${w}" height="${rowH}" fill="transparent" data-si="${si}" data-start="0" data-end="${frets}" data-left-pad="${leftPad}" data-col-w="${colW}" data-row-h="${rowH}" data-pad-t="${pad.t}" aria-label="弦 ${6 - si} 点击区"/>`
+      `<rect class="fb-string-strip" x="0" y="${y}" width="${w}" height="${rowH}" fill="transparent" data-si="${si}" data-start="0" data-end="${frets}" data-left-pad="${leftPad}" data-col-w="${colW}" data-row-h="${rowH}" data-pad-t="${pad.t}" aria-label="弦 ${stringCount - si} 点击区"/>`
     );
   });
 
@@ -377,14 +380,18 @@ function buildScaleVoicingSVG(v, type, tuning, opts = {}) {
   const handed = opts.handed ?? "right";
   const accidental = opts.accidental ?? "sharp";
   const frets = v.frets;
+  const stringCount = frets.length;
   const base = v.baseFret;
   const start = base <= 1 ? 0 : base - 1;
   const rows = Math.max(4, Math.min(6, v.span + 2));
   const pad = { t: 22, r: 10, b: 14, l: 16 };
   const colW = 15;
   const rowH = 15;
-  const order = handed === "left" ? [5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5];
-  const w = pad.l + colW * 6 + pad.r;
+  const order =
+    handed === "left"
+      ? Array.from({ length: stringCount }, (_, k) => stringCount - 1 - k)
+      : Array.from({ length: stringCount }, (_, k) => k);
+  const w = pad.l + colW * stringCount + pad.r;
   const h = pad.t + rows * rowH + pad.b;
 
   const parts = [];
@@ -394,7 +401,7 @@ function buildScaleVoicingSVG(v, type, tuning, opts = {}) {
     const y = pad.t + r * rowH;
     const isTop = r === 0;
     parts.push(
-      `<line x1="${pad.l}" y1="${y}" x2="${pad.l + colW * 6}" y2="${y}" stroke="${isTop ? SCALE_DIAGRAM_COLORS.nut : SCALE_DIAGRAM_COLORS.line}" stroke-width="${isTop ? 4 : 1.4}"/>`
+      `<line x1="${pad.l}" y1="${y}" x2="${pad.l + colW * stringCount}" y2="${y}" stroke="${isTop ? SCALE_DIAGRAM_COLORS.nut : SCALE_DIAGRAM_COLORS.line}" stroke-width="${isTop ? 4 : 1.4}"/>`
     );
   }
 
@@ -787,52 +794,9 @@ if (typeof document !== "undefined") {
 
   // C 大调顺阶和弦用户指定按法（截图来源）。
   // 仅对 C 大调生效，其他调保持原 extendedVoicings 选择逻辑。
-  const C_MAJOR_DIATONIC_VOICINGS = {
-    triads: [
-      { frets: [-1, 3, 2, 0, 1, 0], typeId: "major", rootStrings: [1, 4] },      // I   C
-      { frets: [-1, 5, 7, 7, 6, 5], typeId: "minor", rootStrings: [1, 3] },      // ii  Dm
-      { frets: [0, 2, 2, 0, 0, 0], typeId: "minor", rootStrings: [0, 2, 5] },    // iii Em
-      { frets: [-1, 8, 10, 10, 10, 8], typeId: "major", rootStrings: [1, 3] },   // IV  F
-      { frets: [-1, 10, 9, 7, 8, 7], typeId: "major", rootStrings: [1, 4] },     // V   G
-      { frets: [-1, 0, 2, 2, 1, 0], typeId: "minor", rootStrings: [1, 3] },      // vi  Am
-      { frets: [-1, 2, 3, 4, 3, 1], typeId: "dim", rootStrings: [1, 3] },        // vii° Bdim
-    ],
-    sevenths: [
-      { frets: [-1, 3, 2, 0, 0, 0], typeId: "maj7", rootStrings: [1] },          // Imaj7   Cmaj7
-      { frets: [-1, 5, 7, 5, 6, 5], typeId: "m7", rootStrings: [1] },            // ii7     Dm7
-      { frets: [0, 2, 0, 0, 0, 0], typeId: "m7", rootStrings: [0, 5] },          // iii7    Em7
-      { frets: [-1, 8, 10, 9, 10, 8], typeId: "maj7", rootStrings: [1, 5] },    // IVmaj7  Fmaj7
-      { frets: [-1, 10, 9, 7, 6, 7], typeId: "7", rootStrings: [1] },            // V7      G7
-      { frets: [-1, 0, 2, 0, 1, 3], typeId: "m7", rootStrings: [1, 3] },         // vi7     Am7
-      { frets: [-1, 2, 3, 2, 3, 1], typeId: "m7b5", rootStrings: [1] },          // vii7b5  Bm7b5
-    ],
-  };
-
-  // 根据硬编码 frets 构造 voicing 对象（复用引擎的指法/分组函数）
-  function makeVoicingFromFrets(template, rootSemi, tuningPitches) {
-    const frets = template.frets;
-    const pressed = frets.filter((f) => f > 0);
-    const baseFret = pressed.length ? Math.min(...pressed) : 0;
-    const span = pressed.length ? Math.max(...pressed) - baseFret : 0;
-    const rootStrings = [];
-    for (let si = 0; si < 6; si += 1) {
-      const f = frets[si];
-      if (f >= 0 && scaleMod12(tuningPitches[si] + f) === rootSemi) {
-        rootStrings.push(si);
-      }
-    }
-    if (rootStrings.length === 0) return null;
-    return {
-      frets,
-      baseFret,
-      span,
-      rootStrings,
-      fingers: assignFingers(frets),
-      group: classifyVoicing({ frets, baseFret }, true),
-      label: "顺阶常用",
-      source: "diatonic-template",
-    };
-  }
+  /* 注：原 C_MAJOR_DIATONIC_VOICINGS（手写六弦吉他按法）与 makeVoicingFromFrets
+   *     已随贝斯改造移除——六弦按法在四弦贝斯上不可弹，改为按当前弦数生成。
+   *     （参见下方 pickVoicing） */
 
   const els = {
     tuningSelect: document.querySelector("#tuningSelect"),
@@ -967,7 +931,7 @@ if (typeof document !== "undefined") {
     els.fretboard.innerHTML = svg;
 
     // 品位数字条：完整显示 1..24 品
-    const L = scaleFbLayout(boardFrets);
+    const L = scaleFbLayout(boardFrets, currentTuning());
     els.fretNumbers.textContent = "";
     els.fretNumbers.style.paddingLeft = `${L.leftPad}px`;
     for (let f = 1; f <= boardFrets; f += 1) {
@@ -986,55 +950,42 @@ if (typeof document !== "undefined") {
     renderChordGrid(els.seventhGrid, currentDiatonic.sevenths, true);
   }
 
+  /* 贝斯顺阶和弦指法选择
+   * 注：原吉他版依赖 C_MAJOR_DIATONIC_VOICINGS（手写六弦按法）+ CAGED 模板，
+   *     弦数与贝斯不符（示意图形状错误、把位不可弹），已改为按当前弦数生成。
+   * 选法偏好（贴合贝斯和声的实际用法）：
+   *   1) 低把位优先（贝斯手习惯在 1–7 品建立和声）
+   *   2) 根音落在最低发声弦（低音区的根音最稳）
+   *   3) 发声弦数尽量多（贝斯三/四弦同时按已有完整和声）
+   */
   function pickVoicing(rootSemi, typeId, degree, isSeventh) {
-    // C 大调使用用户指定的顺阶和弦按法
-    if (state.root === 0 && currentScale().id === "major" && degree >= 0 && degree <= 6) {
-      const list = isSeventh ? C_MAJOR_DIATONIC_VOICINGS.sevenths : C_MAJOR_DIATONIC_VOICINGS.triads;
-      const template = list[degree];
-      if (template && template.typeId === typeId) {
-        const v = makeVoicingFromFrets(template, rootSemi, currentTuning().pitches);
-        if (v) return v;
-      }
-    }
-    const res = extendedVoicings(typeId, rootSemi, currentTuning().pitches, {});
-    const list = res.open.length ? res.open : res.must;
-    return list.length ? list[0] : null;
+    const tuning = currentTuning();
+    const pitches = tuning.pitches;
+    const res = extendedVoicings(typeId, rootSemi, pitches, {});
+    const pool = [...res.open, ...res.must, ...res.moveable];
+    if (!pool.length) return null;
+
+    const score = (v) => {
+      const f = v.frets;
+      const sounded = f.filter((x) => x >= 0);
+      const pressed = f.filter((x) => x > 0);
+      const lowest = f.findIndex((x) => x >= 0);
+      const base = pressed.length ? Math.min(...pressed) : 0;
+      let s = 0;
+      s -= base * 3;                                   // 低把位优先
+      s += sounded.length * 6;                         // 发声弦多优先
+      if (lowest === 0) s += 14;                       // 根音在最低弦
+      else if (lowest > 0) s -= lowest * 4;            // 越低越好
+      if (v.rootStrings && v.rootStrings.includes(lowest)) s += 10;
+      s -= (v.span || 0) * 2;                          // 跨度小更好按
+      return s;
+    };
+
+    const best = pool.slice().sort((a, b) => score(b) - score(a))[0];
+    return best || null;
   }
 
-  /* 跳转至和弦速查页详情视图（与探索模式 → 详情完全一致的交互）
-   * - URL 参数携带：from=scale、root、type、tuning、handed、acc、notes（逗号分隔 pitch class）
-   * - sessionStorage 备份当前 scales.html 状态，返回时按备份恢复
-   * - 当 voicing 为空时仍可跳转（详情页会兜底渲染普通推荐指法） */
-  function jumpToChordDetail(c, voicing) {
-    try {
-      sessionStorage.setItem("gcfm-scale-backup", JSON.stringify({
-        root: state.root,
-        scaleId: state.scaleId,
-        tuningId: state.tuningId,
-        accidental: state.accidental,
-        handed: state.handed,
-        labelMode: state.labelMode,
-        fbRangeMin: state.startFret,
-        fbRangeMax: state.endFret,
-      }));
-    } catch {
-      // 隐私模式可能不可用，忽略
-    }
-    const params = new URLSearchParams({
-      from: "scale",
-      root: String(c.rootSemi),
-      type: c.typeId,
-      tuning: state.tuningId,
-      handed: state.handed,
-      acc: state.accidental,
-      notes: c.semis.join(","),
-    });
-    if (voicing) {
-      params.set("vf", voicing.frets.join(","));
-      if (voicing.baseFret != null) params.set("vb", String(voicing.baseFret));
-    }
-    window.location.href = "chords.html?" + params.toString();
-  }
+  /* 注：原「跳转至和弦速查页详情」逻辑已随该页一并从本站移除。 */
 
   function renderChordGrid(container, chords, isSeventh) {
     container.textContent = "";
@@ -1068,18 +1019,7 @@ if (typeof document !== "undefined") {
         diagram.innerHTML = "";
       }
 
-      // 「查看详情」按钮：跳转至 chords.html，复刻探索模式跳转逻辑
-      const detailBtn = document.createElement("button");
-      detailBtn.type = "button";
-      detailBtn.className = "chord-cell-detail-btn";
-      detailBtn.textContent = "查看详情 →";
-      detailBtn.setAttribute("aria-label", `在和弦速查页查看 ${c.symbol} 详情`);
-      detailBtn.addEventListener("click", (e) => {
-        e.stopPropagation(); // 不触发 cell 的高亮逻辑
-        jumpToChordDetail(c, v);
-      });
-
-      cell.append(roman, symbol, diagram, detailBtn);
+      cell.append(roman, symbol, diagram);
       cell.addEventListener("click", () => toggleChordHighlight(c, cell));
       cell.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -1141,7 +1081,7 @@ if (typeof document !== "undefined") {
   function flashNote(si, fret) {
     const svg = els.fretboard.querySelector("svg");
     if (!svg) return;
-    const L = scaleFbLayout(SCALE_MAX_FRET);
+    const L = scaleFbLayout(SCALE_MAX_FRET, currentTuning());
     const order = L.order;
     const row = order.indexOf(si);
     if (row < 0) return;

@@ -6,7 +6,7 @@
  *  - 通用函数（fretboardPositions / chordSymbol / chordSemitones / noteName / CHORD_TYPE_MAP / mod12）
  *    与弦数无关，被 scales.html 直接复用
  *  - 吉他专属的 voicing/CAGED 算法（findVoicings / generateCaged / extendedVoicings 等）
- *    对贝斯不适用，保留代码不删除（避免误删 scale-app 依赖），但 chords.html 不会再调用它们
+ *    对贝斯不适用，保留代码不删除（避免误删 scale-app 依赖），当前无人调用
  *
  * 约定：
  *  - 音高一律用半音值表示（C=0, C#/Db=1 … B=11），循环取模 12。
@@ -486,10 +486,13 @@ const SHAPES = [
 function transposedShapes(typeId, targetRoot, tuningPitches, opts = {}) {
   const type = CHORD_TYPE_MAP[typeId];
   if (!type) return [];
+  // SHAPES 形状库为六弦吉他 CAGED 数据，弦数与贝斯不匹配（贝斯 4/5 弦），
+  // 直接套用会产出错误的把位与越界索引，故非六弦调弦直接跳过本数据源。
+  if (tuningPitches.length !== 6) return [];
   const capo = opts.capo ?? 0;
   const pitches = tuningPitches.map((p) => mod12(p + capo));
   const chordSet = new Set(type.intervals.map((i) => mod12(targetRoot + i)));
-  const required = requiredIntervals(type).map((i) => mod12(targetRoot + i));
+  const required = requiredIntervals(type, tuningPitches.length).map((i) => mod12(targetRoot + i));
 
   const out = [];
   for (const sh of SHAPES) {
@@ -543,7 +546,7 @@ function transposedShapes(typeId, targetRoot, tuningPitches, opts = {}) {
 
       // 根音弦
       const rootStrings = [];
-      for (let si = 0; si < 6; si += 1) {
+      for (let si = 0; si < tuningPitches.length; si += 1) {
         if (newFrets[si] >= 0 && mod12(pitches[si] + newFrets[si]) === targetRoot) {
           rootStrings.push(si);
         }
@@ -578,18 +581,20 @@ function transposedShapes(typeId, targetRoot, tuningPitches, opts = {}) {
 }
 
 /* ---------- 必须覆盖的核心音 ----------
- * 吉他演奏中纯五度（7）常被省略，复杂延伸和弦只要求骨架：
- * 根音 + 三音 + 七/六音 + 最高延伸音。
+ * 注：原吉他版会省略纯五度（吉他指法拥挤时的常见省略）。
+ *     贝斯每条弦只发一个音、且四弦足以覆盖完整和声，省略五度会得出
+ *     「E-C-E-B」这类不完整/听感错误的和弦，故贝斯保留全部和弦音。
+ *     仅当和弦音多到四弦放不下时才允许做取舍。
  */
-function requiredIntervals(type) {
-  const intervals = type.intervals;
-  const withoutFifth = intervals.filter((i) => mod12(i) !== 7);
-  if (withoutFifth.length <= 4) return withoutFifth;
+function requiredIntervals(type, stringCount) {
+  const intervals = type.intervals.map((i) => mod12(i));
+  const unique = [...new Set(intervals)];
+  // 弦数足够覆盖全部和弦音时，一个都不能少
+  if (!stringCount || unique.length <= stringCount) return unique;
+  // 弦数不足（如四弦按九和弦）：保留根音 + 三音 + 七音 + 最高延伸音
   const essential = [0, intervals[1]];
-  const seventh = intervals.find((i) => [9, 10, 11].includes(mod12(i)));
-  if (seventh !== undefined) {
-    essential.push(seventh);
-  }
+  const seventh = intervals.find((i) => [9, 10, 11].includes(i));
+  if (seventh !== undefined) essential.push(seventh);
   essential.push(intervals[intervals.length - 1]);
   return [...new Set(essential)];
 }
@@ -650,6 +655,8 @@ function generateCaged(typeId, root, tuningPitches) {
   if (!tpls) return [];
   const type = CHORD_TYPE_MAP[typeId];
   if (!type) return [];
+  // CAGED_TEMPLATES 为六弦吉他模板，弦数与贝斯不符，非六弦直接跳过。
+  if (tuningPitches.length !== 6) return [];
   const chordSet = new Set(type.intervals.map((i) => mod12(root + i)));
   const out = [];
 
@@ -774,7 +781,7 @@ function findVoicings(root, type, tuningPitches, opts = {}) {
 
   const pitches = tuningPitches.map((p) => mod12(p + capo));
   const chordSet = new Set(type.intervals.map((i) => mod12(root + i)));
-  const required = requiredIntervals(type).map((i) => mod12(root + i));
+  const required = requiredIntervals(type, tuningPitches.length).map((i) => mod12(root + i));
 
   const seen = new Set();
   const all = [];
@@ -796,7 +803,7 @@ function findVoicings(root, type, tuningPitches, opts = {}) {
     const stack = [{ idx: 0, frets: [] }];
     while (stack.length) {
       const cur = stack.pop();
-      if (cur.idx === 6) {
+      if (cur.idx === pitches.length) {
         const frets = cur.frets;
         const played = [];
         frets.forEach((f, si) => {
@@ -909,7 +916,7 @@ function extendedVoicings(typeId, rootSemitone, tuningPitches, opts = {}) {
       const fs = v.frets.filter((f) => f > 0);
       const span = fs.length ? Math.max(...fs) - Math.min(...fs) : 0;
       let lowest = -1;
-      for (let si = 0; si < 6; si += 1) if (v.frets[si] >= 0) { lowest = si; break; }
+      for (let si = 0; si < v.frets.length; si += 1) if (v.frets[si] >= 0) { lowest = si; break; }
       const bassRoot = v.rootStrings.includes(lowest) ? 60 : 0;
       const openBonus = v.frets.filter((f) => f === 0).length * 4;
       const baseFret = fs.length ? Math.min(...fs) : 0;
