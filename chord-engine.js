@@ -292,6 +292,61 @@ function noteName(semi, mode) {
   return (mode === "flat" ? PITCH_FLAT : PITCH_SHARP)[n];
 }
 
+/* ---------- 调性拼写（音名显示的唯一出口） ----------
+ * 升降号跟随调性，不再由全局开关决定（D 大调必须显示 F#/C#，而不是 Gb/Db）：
+ *  - 降号调根音（F / Bb / Eb / Ab / Db / Gb）→ 全站用降号半音表
+ *  - 其余根音（C / D / E / G / A / B）→ 全站用升号半音表
+ * 七音音阶的调内音额外按「级数字母顺序推进」得到理论拼写——
+ * F#(Gb) 大调第 7 级是 F(E#)、第 4 级是 C(B)→ Cb，而不是等音替代的 F / B。
+ * 五 / 六 / 八音音阶（五声、布鲁斯、全音、减）无连续字母可依，直接用随调性的半音表。
+ */
+const FLAT_KEY_ROOTS = new Set([5, 10, 3, 8, 1, 6]); // F Bb Eb Ab Db Gb
+const SPELL_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
+const SPELL_LETTER_NATURAL = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const SPELL_ACCIDENTAL = { 0: "", 1: "#", 2: "##", "-1": "b", "-2": "bb" };
+
+function keySpellMode(rootPc) {
+  return FLAT_KEY_ROOTS.has(mod12(rootPc)) ? "flat" : "sharp";
+}
+
+/* 拼写器工厂：name(pc) 返回该调性下任意半音的显示音名。
+ * 全站所有音名显示（音名 chips / 根音按钮 / 指板图 / 和弦指法图 / 顺阶和弦记号）
+ * 一律经由它取名字，保证拼写同源联动。 */
+function createSpeller(rootPc, scaleIntervals) {
+  const mode = keySpellMode(rootPc);
+  const chromatic = mode === "flat" ? PITCH_FLAT : PITCH_SHARP;
+  const ivs = Array.isArray(scaleIntervals) ? scaleIntervals : [];
+  let degreeNames = null;
+  if (ivs.length === 7) {
+    const startIdx = SPELL_LETTERS.indexOf(chromatic[mod12(rootPc)][0]);
+    if (startIdx >= 0) {
+      degreeNames = new Map();
+      let valid = true;
+      ivs.forEach((iv, i) => {
+        const letter = SPELL_LETTERS[(startIdx + i) % 7];
+        const target = mod12(rootPc + iv);
+        let d = ((target - SPELL_LETTER_NATURAL[letter]) % 12 + 12) % 12;
+        if (d >= 6) d -= 12;
+        const suffix = SPELL_ACCIDENTAL[d];
+        if (suffix === undefined) {
+          valid = false; // 出现极端重升/重降（理论拼写超界），回退半音表
+          return;
+        }
+        degreeNames.set(target, letter + suffix);
+      });
+      if (!valid) degreeNames = null;
+    }
+  }
+  return {
+    mode,
+    name(pc) {
+      pc = mod12(pc);
+      if (degreeNames && degreeNames.has(pc)) return degreeNames.get(pc);
+      return chromatic[pc];
+    },
+  };
+}
+
 function chordSemitones(root, type) {
   return type.intervals.map((i) => mod12(root + i));
 }
@@ -1074,6 +1129,8 @@ if (typeof module !== "undefined" && module.exports) {
     CHORD_TYPE_MAP,
     TYPE_GROUPS,
     noteName,
+    keySpellMode,
+    createSpeller,
     chordSemitones,
     chordSymbol,
     assignFingers,

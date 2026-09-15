@@ -181,7 +181,7 @@ function romanNumeral(degree, typeId) {
 }
 
 /* ===================== 顺阶和弦计算 ===================== */
-function diatonicChords(root, scaleType, tuning, accidental) {
+function diatonicChords(root, scaleType, tuning, speller) {
   const ivals = scaleType.intervals;
   const n = ivals.length;
   const build = (useSeventh) => {
@@ -197,7 +197,7 @@ function diatonicChords(root, scaleType, tuning, accidental) {
       const map = useSeventh ? SEVENTH_MAP : TRIAD_MAP;
       const typeId = map[key] || (useSeventh ? "7" : "major");
       const type = CHORD_TYPE_MAP[typeId];
-      const symbol = chordSymbol(rootSemi, type, accidental);
+      const symbol = speller.name(rootSemi) + type.suffix;
       const semis = chordSemitones(rootSemi, type);
       out.push({
         degree: i,
@@ -258,7 +258,7 @@ function buildScaleFretboardSVG(root, scaleType, tuning, opts = {}) {
   const startFret = Number.isFinite(opts.startFret) ? Math.max(0, Math.min(frets, opts.startFret)) : 0;
   const endFret = Number.isFinite(opts.endFret) ? Math.max(startFret, Math.min(frets, opts.endFret)) : frets;
   const labelMode = opts.labelMode ?? "note"; // note | degree
-  const accidental = opts.accidental ?? "sharp";
+  const speller = opts.speller ?? createSpeller(root, scaleType.intervals); // 音名拼写随调性
   const highlight = opts.highlight || null; // Set<number> 或数组（pitch class）
   const playingPc = opts.playingPc ?? null; // 播放时高亮的 pitch class（所有同音名位置）
   const L = scaleFbLayout(frets, tuning);
@@ -293,7 +293,7 @@ function buildScaleFretboardSVG(root, scaleType, tuning, opts = {}) {
     const y = pad.t + row * rowH + rowH / 2;
     const sw = scaleStringWidth(si, 2, 6, stringCount);
     parts.push(`<line x1="${leftPad}" y1="${y}" x2="${rightEdge}" y2="${y}" stroke="${SCALE_DIAGRAM_COLORS.line}" stroke-width="${sw}"/>`);
-    parts.push(`<text class="diagram-stringname" x="${leftPad - 34}" y="${y + 3}" text-anchor="end">${noteName(tuning.pitches[si], accidental)}</text>`);
+    parts.push(`<text class="diagram-stringname" x="${leftPad - 34}" y="${y + 3}" text-anchor="end">${speller.name(tuning.pitches[si])}</text>`);
   });
 
   // 品记：位置随弦数自适应
@@ -326,7 +326,7 @@ function buildScaleFretboardSVG(root, scaleType, tuning, opts = {}) {
     const row = order.indexOf(p.si);
     const y = pad.t + row * rowH + rowH / 2;
     const semi = scaleMod12(tuning.pitches[p.si] + p.fret);
-    const note = noteName(semi, accidental);
+    const note = speller.name(semi);
     const degree = semiToDegree[semi] ?? "";
     const isHi = highlight && (Array.isArray(highlight) ? highlight.includes(semi) : highlight.has(semi));
     const isPlaying = playingPc !== null && playingPc !== undefined && semi === playingPc;
@@ -378,7 +378,7 @@ function scaleStringWidthV(si, thin, thick) {
 
 function buildScaleVoicingSVG(v, type, tuning, opts = {}) {
   const handed = opts.handed ?? "right";
-  const accidental = opts.accidental ?? "sharp";
+  const speller = opts.speller ?? createSpeller(0, null); // 音名拼写随调性
   const frets = v.frets;
   const stringCount = frets.length;
   const base = v.baseFret;
@@ -463,8 +463,8 @@ function buildScaleVoicingSVG(v, type, tuning, opts = {}) {
     const f = frets[si];
     let label;
     if (f === -1) label = "×";
-    else if (f === 0) label = noteName(tuning.pitches[si], accidental);
-    else label = noteName(tuning.pitches[si] + f, accidental);
+    else if (f === 0) label = speller.name(tuning.pitches[si]);
+    else label = speller.name(tuning.pitches[si] + f);
     parts.push(`<text class="diagram-stringname" x="${x}" y="${pad.t + rows * rowH + 11}" text-anchor="middle">${label}</text>`);
   });
 
@@ -710,18 +710,31 @@ if (typeof module !== "undefined" && module.exports) {
 
 /* ===================== 浏览器初始化 ===================== */
 if (typeof document !== "undefined") {
-  const STORAGE_KEY = "guitar-scale-practice-settings";
-  const SCALE_BACKUP_KEY = "gcfm-scale-backup";
+  // 键名必须带 bass- 前缀：与吉他站在同一 origin（<user>.github.io）下共享 localStorage，
+  // 不隔离会互相覆盖设置
+  const STORAGE_KEY = "bass-scale-practice-settings";
+  const SCALE_BACKUP_KEY = "bass-scale-backup";
   const DEFAULT_STATE = {
     root: 0,
     scaleId: "major",
     tuningId: "standard",
-    accidental: "sharp",
     startFret: 0,
     endFret: 12,
     labelMode: "note",
     handed: "right",
   };
+
+  /* ---------- 音名拼写中心（唯一出口） ----------
+   * 升降号由当前调性（根音）决定：升号调用升号拼写、降号调用降号拼写，
+   * 七音音阶按级数字母推进取理论拼写（D 大调 → D E F# G A B C#）。
+   * 音名 chips / 根音按钮 / 指板图 / 和弦指法图 / 顺阶和弦记号全部只消费这里的输出，
+   * 不再各自读取升降号开关（该开关已随本改造移除）。 */
+  function currentSpeller() {
+    return createSpeller(state.root, currentScale().intervals);
+  }
+  function currentSpellMode() {
+    return keySpellMode(state.root);
+  }
 
   function clampFret(n) {
     return Math.max(0, Math.min(24, Math.round(n) || 0));
@@ -760,7 +773,6 @@ if (typeof document !== "undefined") {
           root: Number.isFinite(saved.root) ? saved.root % 12 : DEFAULT_STATE.root,
           scaleId: SCALE_TYPE_MAP[scaleId] ? scaleId : DEFAULT_STATE.scaleId,
           tuningId: TUNINGS[saved.tuningId] ? saved.tuningId : DEFAULT_STATE.tuningId,
-          accidental: saved.accidental === "flat" ? "flat" : "sharp",
           startFret,
           endFret,
           labelMode: saved.labelMode === "degree" ? "degree" : "note",
@@ -777,7 +789,6 @@ if (typeof document !== "undefined") {
     if (Number.isFinite(backup.root)) s.root = backup.root % 12;
     if (SCALE_TYPE_MAP[backup.scaleId]) s.scaleId = backup.scaleId;
     if (TUNINGS[backup.tuningId]) s.tuningId = backup.tuningId;
-    s.accidental = backup.accidental === "flat" ? "flat" : "sharp";
     s.handed = backup.handed === "left" ? "left" : "right";
     s.labelMode = backup.labelMode === "degree" ? "degree" : "note";
     if (Number.isFinite(backup.fbRangeMin)) s.startFret = clampFret(backup.fbRangeMin);
@@ -801,7 +812,6 @@ if (typeof document !== "undefined") {
   const els = {
     tuningSelect: document.querySelector("#tuningSelect"),
     tuningDesc: document.querySelector("#tuningDesc"),
-    accidentalSwitch: document.querySelector("#accidentalSwitch"),
     fretRangeMinInput: document.querySelector("#fretRangeMinInput"),
     fretRangeMaxInput: document.querySelector("#fretRangeMaxInput"),
     fretRangeFill: document.querySelector("#fretRangeFill"),
@@ -839,7 +849,7 @@ if (typeof document !== "undefined") {
       btn.className = "root-btn";
       btn.dataset.root = String(i);
       btn.setAttribute("aria-pressed", "false");
-      btn.textContent = noteName(i, state.accidental);
+      btn.textContent = noteName(i, currentSpellMode());
       els.rootButtons.append(btn);
     }
   }
@@ -875,7 +885,7 @@ if (typeof document !== "undefined") {
       const active = Number(btn.dataset.root) === state.root;
       btn.classList.toggle("active", active);
       btn.setAttribute("aria-pressed", String(active));
-      btn.textContent = noteName(Number(btn.dataset.root), state.accidental);
+      btn.textContent = noteName(Number(btn.dataset.root), currentSpellMode());
     });
     els.scaleGroups.querySelectorAll(".type-btn").forEach((btn) => {
       const active = btn.dataset.scale === state.scaleId;
@@ -895,13 +905,14 @@ if (typeof document !== "undefined") {
   /* ---------- 渲染 Hero ---------- */
   function renderHero() {
     const sc = currentScale();
-    const rootName = noteName(state.root, state.accidental);
+    const speller = currentSpeller();
+    const rootName = speller.name(state.root);
     els.scaleName.textContent = `${rootName} ${sc.cn}`;
     els.scaleEn.textContent = sc.en;
 
     const semis = sc.intervals.map((iv) => scaleMod12(state.root + iv));
     els.noteChips.innerHTML = semis
-      .map((s) => `<span class="chip tone-chip">${noteName(s, state.accidental)}</span>`)
+      .map((s) => `<span class="chip tone-chip">${speller.name(s)}</span>`)
       .join("");
     els.degreeChips.innerHTML = sc.degrees
       .map((d) => `<span class="chip interval-chip">${d}</span>`)
@@ -924,7 +935,7 @@ if (typeof document !== "undefined") {
       startFret: state.startFret,
       endFret: state.endFret,
       labelMode: state.labelMode,
-      accidental: state.accidental,
+      speller: currentSpeller(),
       highlight: highlightSet,
       playingPc,
     });
@@ -945,7 +956,7 @@ if (typeof document !== "undefined") {
   /* ---------- 渲染顺阶和弦 ---------- */
   function renderDiatonic() {
     const sc = currentScale();
-    currentDiatonic = diatonicChords(state.root, sc, currentTuning(), state.accidental);
+    currentDiatonic = diatonicChords(state.root, sc, currentTuning(), currentSpeller());
     renderChordGrid(els.triadGrid, currentDiatonic.triads, false);
     renderChordGrid(els.seventhGrid, currentDiatonic.sevenths, true);
   }
@@ -1012,7 +1023,7 @@ if (typeof document !== "undefined") {
       if (v) {
         diagram.innerHTML = buildScaleVoicingSVG(v, type, currentTuning(), {
           handed: state.handed,
-          accidental: state.accidental,
+          speller: currentSpeller(),
         });
       } else {
         // 无指法时留空占位，不输出说明性文字
@@ -1214,15 +1225,6 @@ if (typeof document !== "undefined") {
       renderAll();
     });
 
-    els.accidentalSwitch.addEventListener("click", (e) => {
-      const btn = e.target.closest("button[data-acc]");
-      if (!btn) return;
-      state.accidental = btn.dataset.acc;
-      refreshSegmented(els.accidentalSwitch, "acc", state.accidental);
-      saveState();
-      renderAll();
-    });
-
     els.fretRangeMinInput.addEventListener("input", onFretRangeInput);
     els.fretRangeMaxInput.addEventListener("input", onFretRangeInput);
 
@@ -1259,7 +1261,6 @@ if (typeof document !== "undefined") {
     els.fretboardScroll.addEventListener("click", handleFretboardClick);
 
     // 初次加载：应用已保存的分段状态
-    refreshSegmented(els.accidentalSwitch, "acc", state.accidental);
     renderFretRangeInputs();
     refreshSegmented(els.labelSwitch, "label", state.labelMode);
   }
