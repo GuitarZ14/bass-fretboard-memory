@@ -725,15 +725,18 @@ if (typeof document !== "undefined") {
   };
 
   /* ---------- 音名拼写中心（唯一出口） ----------
-   * 升降号由当前调性（根音）决定：升号调用升号拼写、降号调用降号拼写，
-   * 七音音阶按级数字母推进取理论拼写（D 大调 → D E F# G A B C#）。
-   * 音名 chips / 根音按钮 / 指板图 / 和弦指法图 / 顺阶和弦记号全部只消费这里的输出，
-   * 不再各自读取升降号开关（该开关已随本改造移除）。 */
+   * 音名显示分两层：
+   *  - 调名层（根音按钮、调外半音、和弦记号根名）：跟随用户 ♯/♭ 偏好
+   *    （spellPref，持久保存在共享键，音阶页/和弦页同源共用）；
+   *  - 调内音名层（七音音阶的组成音）：按级数字母推进取理论拼写，
+   *    不随偏好改变（D 大调永远显示 F#/C#，而非 Gb/Db 等音替代）。
+   * 全站所有音名显示只消费这里的输出，保证联动一致。 */
+  let spellPref = loadSpellPref();
   function currentSpeller() {
-    return createSpeller(state.root, currentScale().intervals);
+    return createSpeller(state.root, currentScale().intervals, spellPref);
   }
   function currentSpellMode() {
-    return keySpellMode(state.root);
+    return spellPref;
   }
 
   function clampFret(n) {
@@ -827,6 +830,7 @@ if (typeof document !== "undefined") {
     fretboardScroll: document.querySelector("#fretboardScroll"),
     playButton: document.querySelector("#playButton"),
     labelSwitch: document.querySelector("#labelSwitch"),
+    spellPrefSwitch: document.querySelector("#spellPrefSwitch"),
     rootButtons: document.querySelector("#rootButtons"),
     scaleGroups: document.querySelector("#scaleGroups"),
     triadGrid: document.querySelector("#triadGrid"),
@@ -1228,6 +1232,20 @@ if (typeof document !== "undefined") {
     els.fretRangeMinInput.addEventListener("input", onFretRangeInput);
     els.fretRangeMaxInput.addEventListener("input", onFretRangeInput);
 
+    /* 调名 ♯/♭ 开关：切换调名拼写偏好（根音按钮、调外半音、和弦记号根名），
+     * 持久保存到共享键；调内音名仍按理论拼写（不受偏好影响）。 */
+    els.spellPrefSwitch.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-acc]");
+      if (!btn) return;
+      if (spellPref === btn.dataset.acc) return;
+      spellPref = btn.dataset.acc;
+      saveSpellPref(spellPref);
+      refreshSegmented(els.spellPrefSwitch, "acc", spellPref);
+      refreshButtonStates();
+      saveState();
+      renderAll();
+    });
+
     els.labelSwitch.addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-label]");
       if (!btn) return;
@@ -1261,6 +1279,7 @@ if (typeof document !== "undefined") {
     els.fretboardScroll.addEventListener("click", handleFretboardClick);
 
     // 初次加载：应用已保存的分段状态
+    refreshSegmented(els.spellPrefSwitch, "acc", spellPref);
     renderFretRangeInputs();
     refreshSegmented(els.labelSwitch, "label", state.labelMode);
   }

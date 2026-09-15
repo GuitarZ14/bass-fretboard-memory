@@ -651,6 +651,43 @@ button { color: inherit; cursor: pointer; }
   color: var(--text-3);
 }
 
+/* 根音标签行：左标签 + 右侧调名 ♯/♭ 开关 */
+.selector-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.selector-label-row .selector-label { margin-bottom: 0; }
+.spell-pref-switch {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface, #eef1f8);
+  border: 1px solid rgba(120, 120, 140, 0.22);
+  box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.06), inset -1px -1px 3px rgba(255, 255, 255, 0.85);
+}
+.spell-pref-switch button {
+  min-width: 30px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.4;
+  color: var(--text-3, #8a8fa3);
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.spell-pref-switch button.active {
+  background: #fff;
+  color: var(--text-1, #3a3f52);
+  box-shadow: 1px 2px 4px rgba(60, 70, 100, 0.18);
+}
+
 /* 根音按钮：12 个拆为两行（每行 6 个） */
 .root-buttons {
   display: grid;

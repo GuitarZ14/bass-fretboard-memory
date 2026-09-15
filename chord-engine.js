@@ -309,11 +309,38 @@ function keySpellMode(rootPc) {
   return FLAT_KEY_ROOTS.has(mod12(rootPc)) ? "flat" : "sharp";
 }
 
+/* ---------- 调名升降号偏好（跨页共享、持久保存） ----------
+ * 音阶页与和弦页的 ♯/♭ 开关读写同一个 localStorage 键，
+ * 保证「主界面」与「点击进入后的页面」显示同一套调名。
+ * （键名带站点前缀，与吉他站同源隔离。） */
+const SITE_SPELL_PREF_KEY = "bass-spell-pref";
+
+function loadSpellPref() {
+  try {
+    return localStorage.getItem(SITE_SPELL_PREF_KEY) === "flat" ? "flat" : "sharp";
+  } catch {
+    return "sharp";
+  }
+}
+
+function saveSpellPref(pref) {
+  try {
+    localStorage.setItem(SITE_SPELL_PREF_KEY, pref === "flat" ? "flat" : "sharp");
+  } catch {
+    // 隐私模式可能不可用，忽略
+  }
+}
+
 /* 拼写器工厂：name(pc) 返回该调性下任意半音的显示音名。
  * 全站所有音名显示（音名 chips / 根音按钮 / 指板图 / 和弦指法图 / 顺阶和弦记号）
- * 一律经由它取名字，保证拼写同源联动。 */
-function createSpeller(rootPc, scaleIntervals) {
-  const mode = keySpellMode(rootPc);
+ * 一律经由它取名字，保证拼写同源联动。
+ * modeOverride：用户在 ♯/♭ 开关里选的调名偏好（持久保存在共享键）；
+ * 未提供时按调性自动决定（升号调/降号调）。 */
+function createSpeller(rootPc, scaleIntervals, modeOverride) {
+  const mode =
+    modeOverride === "flat" || modeOverride === "sharp"
+      ? modeOverride
+      : keySpellMode(rootPc);
   const chromatic = mode === "flat" ? PITCH_FLAT : PITCH_SHARP;
   const ivs = Array.isArray(scaleIntervals) ? scaleIntervals : [];
   let degreeNames = null;
@@ -1131,6 +1158,8 @@ if (typeof module !== "undefined" && module.exports) {
     noteName,
     keySpellMode,
     createSpeller,
+    loadSpellPref,
+    saveSpellPref,
     chordSemitones,
     chordSymbol,
     assignFingers,

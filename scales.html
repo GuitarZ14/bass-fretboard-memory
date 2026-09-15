@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="chord-styles.css?v=13" />
+    <link rel="stylesheet" href="chord-styles.css?v=14" />
     <link rel="stylesheet" href="scale-styles.css?v=6" />
     <link rel="stylesheet" href="fretboard-fullscreen.css?v=4" />
   </head>
@@ -178,7 +178,13 @@
               </div>
             </div>
             <div class="selector-block">
-              <span class="selector-label">根音</span>
+              <div class="selector-label-row">
+                <span class="selector-label">根音</span>
+                <div class="segmented spell-pref-switch" id="spellPrefSwitch" role="group" aria-label="调名升降号">
+                  <button type="button" data-acc="sharp" class="active" aria-pressed="true" title="升号调名">♯</button>
+                  <button type="button" data-acc="flat" aria-pressed="false" title="降号调名">♭</button>
+                </div>
+              </div>
               <div class="root-buttons" id="rootButtons" role="group" aria-label="根音选择"></div>
             </div>
             <div class="selector-block">
@@ -195,8 +201,8 @@
       </footer>
     </main>
 
-    <script src="chord-engine.js?v=4"></script>
-    <script src="scale-app.js?v=12"></script>
+    <script src="chord-engine.js?v=5"></script>
+    <script src="scale-app.js?v=13"></script>
     <script src="fretboard-annotate.js?v=7"></script>
     <script>
       // 全屏标注入口
